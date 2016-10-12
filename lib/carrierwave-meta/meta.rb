@@ -58,13 +58,13 @@ module CarrierWave
 
     def get_dimensions
       [].tap do |size|
+        is_flash = file.content_type =~ /x-shockwave-flash/
         is_image = file.content_type =~ /image/
         is_pdf =
           file.content_type =~ /postscript|pdf/ &&
           CarrierWave::Meta.ghostscript_enabled
 
         is_dimensionable = is_image || is_pdf
-
 
         manipulate! do |img|
           if processor?(:rmagick, img) && is_dimensionable
@@ -79,6 +79,9 @@ module CarrierWave
           elsif processor?(:vips, img) && is_image
             size << img.x_size
             size << img.y_size
+          elsif processor?(:image_size, img) && is_flash
+            size << img.w
+            size << img.h
           else
             raise "Unsupported file type/image processor (use RMagick, MiniMagick, ImageSorcery, VIPS)"
           end
@@ -87,6 +90,22 @@ module CarrierWave
       end
     rescue CarrierWave::ProcessingError
     end
+
+    # def flash_info
+    #   file_content = self.file.read
+    #   header=file_content[0...8]
+    #
+    #   if /CWS/ =~ header
+    #     buf= Zlib::Inflate.inflate(file_content[8..-1])
+    #     header.sub!(/^C/,'F')
+    #   else
+    #     buf=file_content
+    #   end
+    #
+    #   is = ImageSize.new(header << buf)
+    #   size << is.w
+    #   size << is.h
+    # end
 
     def processor?(processor, img)
       processor = PROCESSORS[processor]
@@ -98,7 +117,8 @@ module CarrierWave
       rmagick: 'Magick::Image',
       mini_magick: 'MiniMagick::Image',
       socrecy: 'ImageSorcery',
-      vips: 'VIPS::Image'
+      vips: 'VIPS::Image',
+      image_size: 'ImageSize',
     }
   end
 end
